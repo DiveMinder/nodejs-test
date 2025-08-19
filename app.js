@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const indexRouter = require('./routes/index');
-const { handleGetFacilitySignups } = require('./functions/webhooks');
+const { handleGetFacilitySignups, handleGetElearningCodes } = require('./functions/webhooks');
 
 const app = express();
 const PORT = 3000;
@@ -15,6 +15,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Webhook endpoint for "Get Facility Signups"
 app.post('/webhook/get-facility-signups', handleGetFacilitySignups);
+
+// Webhook endpoint for "Get E-Learning Codes"
+app.post('/webhook/get-elearning-codes', handleGetElearningCodes);
 
 // Use the router for handling routes
 app.use('/', indexRouter);

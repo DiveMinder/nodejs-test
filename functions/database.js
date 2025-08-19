@@ -180,6 +180,125 @@ const insertCourseInfo = async (courses) => {
 };
 
 /**
+ * Insert e-learning codes data into get_elearning_codes table
+ * @param {Array} elearningCodes - Array of e-learning code objects from the API response
+ * @returns {Promise<Object>} - Result of the database operation
+ */
+const insertElearningCodes = async (elearningCodes) => {
+  console.log(`Starting database insertion for ${elearningCodes.length} e-learning codes`);
+  console.log('Database URL available:', !!process.env.DATABASE_URL);
+  
+  const client = await pool.connect();
+  console.log('Database client connected successfully');
+  
+  try {
+    await client.query('BEGIN');
+    console.log('Database transaction started');
+    
+    // Prepare the insert statement
+    const insertQuery = `
+      INSERT INTO get_elearning_codes (
+        id, user_id, course_id, user_name, first_name, middle_name, last_name, dob, email,
+        facility_id, facility_name, facility_number, office_id, agency_id, agency,
+        course_name, course_meta, moodle_id, instance_id, prefix_id, suffix_id,
+        status_id, status_label, signup_code, signup_date, help_date, created_at, updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+        $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        user_id = EXCLUDED.user_id,
+        course_id = EXCLUDED.course_id,
+        user_name = EXCLUDED.user_name,
+        first_name = EXCLUDED.first_name,
+        middle_name = EXCLUDED.middle_name,
+        last_name = EXCLUDED.last_name,
+        dob = EXCLUDED.dob,
+        email = EXCLUDED.email,
+        facility_id = EXCLUDED.facility_id,
+        facility_name = EXCLUDED.facility_name,
+        facility_number = EXCLUDED.facility_number,
+        office_id = EXCLUDED.office_id,
+        agency_id = EXCLUDED.agency_id,
+        agency = EXCLUDED.agency,
+        course_name = EXCLUDED.course_name,
+        course_meta = EXCLUDED.course_meta,
+        moodle_id = EXCLUDED.moodle_id,
+        instance_id = EXCLUDED.instance_id,
+        prefix_id = EXCLUDED.prefix_id,
+        suffix_id = EXCLUDED.suffix_id,
+        status_id = EXCLUDED.status_id,
+        status_label = EXCLUDED.status_label,
+        signup_code = EXCLUDED.signup_code,
+        signup_date = EXCLUDED.signup_date,
+        help_date = EXCLUDED.help_date,
+        updated_at = EXCLUDED.updated_at
+      `;
+    
+    // Insert each e-learning code
+    for (let i = 0; i < elearningCodes.length; i++) {
+      const code = elearningCodes[i];
+      if (i === 0) {
+        console.log('Processing first e-learning code:', code.id, code.user_name);
+      }
+      
+      const values = [
+        code.id || 0,
+        code.user_id || 0,
+        code.course_id || 0,
+        code.user_name || '',
+        code.first_name || '',
+        code.middle_name || '',
+        code.last_name || '',
+        code.dob || null,
+        code.email || '',
+        code.facility_id || 0,
+        code.facility_name || '',
+        code.facility_number || 0,
+        code.office_id || 0,
+        code.agency_id || 0,
+        code.agency || '',
+        code.course_name || '',
+        code.course_meta || null,
+        code.moodle_id || 0,
+        code.instance_id || 0,
+        code.prefix_id || 0,
+        code.suffix_id || 0,
+        code.status_id || 0,
+        code.status_label || '',
+        code.signup_code || '',
+        code.signup_date || null,
+        code.help_date || null,
+        code.created_at || new Date().toISOString(),
+        code.updated_at || new Date().toISOString()
+      ];
+      
+      await client.query(insertQuery, values);
+      if (i % 100 === 0) {
+        console.log(`Processed ${i + 1} e-learning codes...`);
+      }
+    }
+    
+    await client.query('COMMIT');
+    console.log('Database transaction committed successfully');
+    
+    return {
+      success: true,
+      message: `Inserted/Updated ${elearningCodes.length} e-learning codes`,
+      count: elearningCodes.length
+    };
+    
+  } catch (error) {
+    console.error('Database error during e-learning codes insertion:', error);
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+    console.log('Database client released');
+  }
+};
+
+/**
  * Close the database connection pool
  */
 const closePool = async () => {
@@ -189,5 +308,6 @@ const closePool = async () => {
 module.exports = {
   insertFacilitySignups,
   insertCourseInfo,
+  insertElearningCodes,
   closePool
 };
