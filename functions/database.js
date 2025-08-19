@@ -191,6 +191,10 @@ const insertElearningCodes = async (elearningCodes) => {
   const client = await pool.connect();
   console.log('Database client connected successfully');
   
+  let successCount = 0;
+  let errorCount = 0;
+  let errors = [];
+  
   try {
     await client.query('BEGIN');
     console.log('Database transaction started');
@@ -239,49 +243,92 @@ const insertElearningCodes = async (elearningCodes) => {
         updated_at = EXCLUDED.updated_at
       `;
     
-    // Insert each e-learning code
-    for (let i = 0; i < elearningCodes.length; i++) {
-      const code = elearningCodes[i];
-      if (i === 0) {
-        console.log('Processing first e-learning code:', code.id, code.user_name);
+    // Process in smaller batches to avoid memory issues in Railway
+    const BATCH_SIZE = 50; // Smaller batches for Railway
+    const totalBatches = Math.ceil(elearningCodes.length / BATCH_SIZE);
+    
+    console.log(`Processing ${elearningCodes.length} records in ${totalBatches} batches of ${BATCH_SIZE}`);
+    
+    for (let batchNum = 0; batchNum < totalBatches; batchNum++) {
+      const startIndex = batchNum * BATCH_SIZE;
+      const endIndex = Math.min(startIndex + BATCH_SIZE, elearningCodes.length);
+      const batch = elearningCodes.slice(startIndex, endIndex);
+      
+      console.log(`Processing batch ${batchNum + 1}/${totalBatches} (records ${startIndex + 1}-${endIndex})`);
+      
+      // Process each record in the current batch
+      for (let i = 0; i < batch.length; i++) {
+        const code = batch[i];
+        const globalIndex = startIndex + i;
+        
+        try {
+          if (globalIndex === 0) {
+            console.log('Processing first e-learning code:', code.id, code.user_name);
+          }
+          
+          const values = [
+            code.id || 0,
+            code.user_id || 0,
+            code.course_id || 0,
+            code.user_name || '',
+            code.first_name || '',
+            code.middle_name || '',
+            code.last_name || '',
+            code.dob || null,
+            code.email || '',
+            code.facility_id || 0,
+            code.facility_name || '',
+            code.facility_number || 0,
+            code.office_id || 0,
+            code.agency_id || 0,
+            code.agency || '',
+            code.course_name || '',
+            code.course_meta || null,
+            code.moodle_id || 0,
+            code.instance_id || 0,
+            code.prefix_id || 0,
+            code.suffix_id || 0,
+            code.status_id || 0,
+            code.status_label || '',
+            code.signup_code || '',
+            code.signup_date || null,
+            code.help_date || null,
+            code.created_at || new Date().toISOString(),
+            code.updated_at || new Date().toISOString()
+          ];
+          
+          await client.query(insertQuery, values);
+          successCount++;
+          
+          if (globalIndex % 100 === 0) {
+            console.log(`Processed ${globalIndex + 1}/${elearningCodes.length} e-learning codes... (${successCount} success, ${errorCount} errors)`);
+          }
+          
+        } catch (insertError) {
+          errorCount++;
+          const errorInfo = {
+            index: globalIndex,
+            codeId: code.id,
+            error: insertError.message,
+            code: code
+          };
+          errors.push(errorInfo);
+          console.error(`Error inserting code ${code.id} at index ${globalIndex}:`, insertError.message);
+          
+          // Continue processing other records instead of failing completely
+          continue;
+        }
       }
       
-      const values = [
-        code.id || 0,
-        code.user_id || 0,
-        code.course_id || 0,
-        code.user_name || '',
-        code.first_name || '',
-        code.middle_name || '',
-        code.last_name || '',
-        code.dob || null,
-        code.email || '',
-        code.facility_id || 0,
-        code.facility_name || '',
-        code.facility_number || 0,
-        code.office_id || 0,
-        code.agency_id || 0,
-        code.agency || '',
-        code.course_name || '',
-        code.course_meta || null,
-        code.moodle_id || 0,
-        code.instance_id || 0,
-        code.prefix_id || 0,
-        code.suffix_id || 0,
-        code.status_id || 0,
-        code.status_label || '',
-        code.signup_code || '',
-        code.signup_date || null,
-        code.help_date || null,
-        code.created_at || new Date().toISOString(),
-        code.updated_at || new Date().toISOString()
-      ];
-      
-      await client.query(insertQuery, values);
-      if (i % 100 === 0) {
-        console.log(`Processed ${i + 1} e-learning codes...`);
+      // Small delay between batches to prevent overwhelming Railway
+      if (batchNum < totalBatches - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
+      
+      console.log(`Batch ${batchNum + 1} completed: ${successCount} total success, ${errorCount} total errors`);
     }
+    
+    console.log(`All batches completed: ${successCount} success, ${errorCount} errors`);
     
     // Re-enable foreign key constraints
     console.log('Re-enabling foreign key constraints...');
@@ -292,8 +339,12 @@ const insertElearningCodes = async (elearningCodes) => {
     
     return {
       success: true,
-      message: `Inserted/Updated ${elearningCodes.length} e-learning codes`,
-      count: elearningCodes.length
+      message: `Inserted/Updated ${successCount} e-learning codes (${errorCount} errors)`,
+      count: successCount,
+      errorCount: errorCount,
+      errors: errors.slice(0, 10), // Return first 10 errors for debugging
+      totalProcessed: elearningCodes.length,
+      batchesProcessed: totalBatches
     };
     
   } catch (error) {
