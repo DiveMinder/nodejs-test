@@ -195,6 +195,10 @@ const insertElearningCodes = async (elearningCodes) => {
     await client.query('BEGIN');
     console.log('Database transaction started');
     
+    // Temporarily disable foreign key constraints
+    console.log('Temporarily disabling foreign key constraints...');
+    await client.query('SET session_replication_role = replica;');
+    
     // Prepare the insert statement
     const insertQuery = `
       INSERT INTO get_elearning_codes (
@@ -278,6 +282,10 @@ const insertElearningCodes = async (elearningCodes) => {
         console.log(`Processed ${i + 1} e-learning codes...`);
       }
     }
+    
+    // Re-enable foreign key constraints
+    console.log('Re-enabling foreign key constraints...');
+    await client.query('SET session_replication_role = DEFAULT;');
     
     await client.query('COMMIT');
     console.log('Database transaction committed successfully');
