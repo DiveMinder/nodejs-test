@@ -84,7 +84,7 @@ const handleGetFacilitySignups = async (req, res) => {
       xsrf = externalResponse.response.xsrf || '';
     } else if (externalResponse.cookies) {
       cookies = externalResponse.cookies;
-      xsrf = externalResponse.response.xsrf || '';
+      xsrf = externalResponse.xsrf || '';
     }
     
     // Now make the actual facility signups API call
