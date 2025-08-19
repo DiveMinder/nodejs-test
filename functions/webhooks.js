@@ -63,8 +63,8 @@ const handleGetFacilitySignups = async (req, res) => {
     console.log('Webhook received for Get Facility Signups:', req.body);
     console.log('Using Facility ID:', process.env.FACILITY_ID);
     
-    // First, call the external service
-    console.log('Calling external service...');
+    // First, call the external service to get authentication
+    console.log('Calling external service for authentication...');
     const externalResponse = await makeExternalRequest(
       process.env.EXTERNAL_WEBHOOK_URL,
       { 
@@ -73,35 +73,33 @@ const handleGetFacilitySignups = async (req, res) => {
       }
     );
     
-    console.log('External service response received');
+    console.log('Authentication received, now calling facility signups API...');
     
-    // Extract the specific data we need
+    // Extract the authentication data
     let cookies = {};
     let xsrf = '';
     
     if (externalResponse.response && externalResponse.response.cookies) {
-      // Structure: { response: { cookies: {...} } }
       cookies = externalResponse.response.cookies;
       xsrf = externalResponse.response.xsrf || '';
     } else if (externalResponse.cookies) {
-      // Structure: { cookies: {...} }
       cookies = externalResponse.cookies;
-      xsrf = externalResponse.xsrf || '';
+      xsrf = externalResponse.response.xsrf || '';
     }
     
-    // Format the curl command with all the extracted data
-    const curlCommand = `curl "https://portal.tdisdi.com/ajax/get_facility_signups?facility_uuid=${process.env.FACILITY_ID}" \\
-  -H "Accept: application/json" \\
-  -H "Cookie: ITIAuthToken=${cookies.ITIAuthToken || ''}; PORTALSESSID=${cookies.PORTALSESSID || ''}; SAMLSessionID=${cookies.SAMLSessionID || ''}; SelectedFacility=${process.env.FACILITY_ID}; XSRF-TOKEN=${xsrf || ''}; tdisdi_portal_session=${cookies.tdisdi_portal_session || ''}" \\
-  -H "x-csrf-token: ${xsrf || ''}" \\
-  -H "x-requested-with: XMLHttpRequest" \\
-  -H "sec-fetch-mode: cors" \\
-  -H "Referer: https://portal.tdisdi.com/"`;
+    // Now make the actual facility signups API call
+    const facilitySignupsResponse = await makeFacilitySignupsRequest(
+      process.env.FACILITY_ID,
+      cookies,
+      xsrf
+    );
     
-    // Return the curl command
+    console.log('Facility signups API response received');
+    
+    // Return the actual response from the facility signups API
     res.status(200).json({
       status: "success",
-      curl_command: curlCommand
+      response: facilitySignupsResponse
     });
     
   } catch (error) {
@@ -111,6 +109,55 @@ const handleGetFacilitySignups = async (req, res) => {
       error: error.message
     });
   }
+};
+
+/**
+ * Make HTTP request to facility signups API
+ * @param {string} facilityId - The facility ID
+ * @param {Object} cookies - Authentication cookies
+ * @param {string} xsrf - XSRF token
+ * @returns {Promise<Object>} - The response data
+ */
+const makeFacilitySignupsRequest = (facilityId, cookies, xsrf) => {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'portal.tdisdi.com',
+      port: 443,
+      path: `/ajax/get_facility_signups?facility_uuid=${facilityId}`,
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Cookie': `ITIAuthToken=${cookies.ITIAuthToken || ''}; PORTALSESSID=${cookies.PORTALSESSID || ''}; SAMLSessionID=${cookies.SAMLSessionID || ''}; SelectedFacility=${facilityId}; XSRF-TOKEN=${xsrf || ''}; tdisdi_portal_session=${cookies.tdisdi_portal_session || ''}`,
+        'x-csrf-token': xsrf || '',
+        'x-requested-with': 'XMLHttpRequest',
+        'sec-fetch-mode': 'cors',
+        'Referer': 'https://portal.tdisdi.com/'
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let responseData = '';
+      
+      res.on('data', (chunk) => {
+        responseData += chunk;
+      });
+      
+      res.on('end', () => {
+        try {
+          const parsedData = JSON.parse(responseData);
+          resolve(parsedData);
+        } catch (error) {
+          resolve({ raw: responseData });
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      reject(error);
+    });
+
+    req.end();
+  });
 };
 
 module.exports = {
