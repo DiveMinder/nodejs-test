@@ -2,6 +2,7 @@
  * Webhook functions for the Node.js application
  */
 const https = require('https');
+const { insertFacilitySignups, insertCourseInfo } = require('./database');
 
 /**
  * Make HTTP request to external service
@@ -79,6 +80,9 @@ const handleGetFacilitySignups = async (req, res) => {
     if (!process.env.EXTERNAL_WEBHOOK_URL) {
       throw new Error('EXTERNAL_WEBHOOK_URL environment variable is not set');
     }
+    if (!process.env.DATABASE_PUBLIC_URL) {
+      throw new Error('DATABASE_PUBLIC_URL environment variable is not set');
+    }
     
     console.log('Using Facility ID:', process.env.FACILITY_ID);
     console.log('External Webhook URL:', process.env.EXTERNAL_WEBHOOK_URL);
@@ -116,10 +120,39 @@ const handleGetFacilitySignups = async (req, res) => {
     
     console.log('Facility signups API response received');
     
-    // Return the actual response from the facility signups API
+    // Insert data into PostgreSQL database
+    console.log('Inserting data into database...');
+    
+    let dbResults = {};
+    
+    try {
+      // Insert facility signups data
+      if (facilitySignupsResponse.data && Array.isArray(facilitySignupsResponse.data)) {
+        console.log(`Inserting ${facilitySignupsResponse.data.length} users into database...`);
+        const userResult = await insertFacilitySignups(facilitySignupsResponse.data);
+        dbResults.users = userResult;
+        console.log('Users inserted successfully:', userResult.message);
+      }
+      
+      // Insert course information
+      if (facilitySignupsResponse.courses && typeof facilitySignupsResponse.courses === 'object') {
+        console.log('Inserting course information into database...');
+        const courseResult = await insertCourseInfo(facilitySignupsResponse.courses);
+        dbResults.courses = courseResult;
+        console.log('Courses inserted successfully:', courseResult.message);
+      }
+      
+    } catch (dbError) {
+      console.error('Database insertion error:', dbError);
+      // Continue with the response even if database insertion fails
+      dbResults.error = dbError.message;
+    }
+    
+    // Return the actual response from the facility signups API along with database results
     res.status(200).json({
       status: "success",
-      response: facilitySignupsResponse
+      response: facilitySignupsResponse,
+      database: dbResults
     });
     
   } catch (error) {
