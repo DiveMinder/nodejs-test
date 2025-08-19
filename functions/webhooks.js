@@ -2,7 +2,7 @@
  * Webhook functions for the Node.js application
  */
 const https = require('https');
-const { insertFacilitySignups, insertCourseInfo } = require('./database');
+const { insertFacilitySignups, insertCourseInfo, insertElearningCodes } = require('./database');
 
 /**
  * Make HTTP request to external service
