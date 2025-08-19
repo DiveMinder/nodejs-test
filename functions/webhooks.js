@@ -80,8 +80,8 @@ const handleGetFacilitySignups = async (req, res) => {
     if (!process.env.EXTERNAL_WEBHOOK_URL) {
       throw new Error('EXTERNAL_WEBHOOK_URL environment variable is not set');
     }
-    if (!process.env.DATABASE_PUBLIC_URL) {
-      throw new Error('DATABASE_PUBLIC_URL environment variable is not set');
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL environment variable is not set');
     }
     
     console.log('Using Facility ID:', process.env.FACILITY_ID);
@@ -122,6 +122,8 @@ const handleGetFacilitySignups = async (req, res) => {
     
     // Insert data into PostgreSQL database
     console.log('Inserting data into database...');
+    console.log('Database URL available:', !!process.env.DATABASE_URL);
+    console.log('Response structure:', Object.keys(facilitySignupsResponse));
     
     let dbResults = {};
     
@@ -129,21 +131,32 @@ const handleGetFacilitySignups = async (req, res) => {
       // Insert facility signups data
       if (facilitySignupsResponse.data && Array.isArray(facilitySignupsResponse.data)) {
         console.log(`Inserting ${facilitySignupsResponse.data.length} users into database...`);
+        console.log('First user sample:', JSON.stringify(facilitySignupsResponse.data[0], null, 2));
         const userResult = await insertFacilitySignups(facilitySignupsResponse.data);
         dbResults.users = userResult;
         console.log('Users inserted successfully:', userResult.message);
+      } else {
+        console.log('No user data found in response or data is not an array');
+        console.log('Data type:', typeof facilitySignupsResponse.data);
+        console.log('Data value:', facilitySignupsResponse.data);
       }
       
       // Insert course information
       if (facilitySignupsResponse.courses && typeof facilitySignupsResponse.courses === 'object') {
         console.log('Inserting course information into database...');
+        console.log('Courses structure:', Object.keys(facilitySignupsResponse.courses));
         const courseResult = await insertCourseInfo(facilitySignupsResponse.courses);
         dbResults.courses = courseResult;
         console.log('Courses inserted successfully:', courseResult.message);
+      } else {
+        console.log('No course data found in response or courses is not an object');
+        console.log('Courses type:', typeof facilitySignupsResponse.courses);
+        console.log('Courses value:', facilitySignupsResponse.courses);
       }
       
     } catch (dbError) {
       console.error('Database insertion error:', dbError);
+      console.error('Error stack:', dbError.stack);
       // Continue with the response even if database insertion fails
       dbResults.error = dbError.message;
     }

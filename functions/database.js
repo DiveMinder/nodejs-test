@@ -5,7 +5,7 @@ const { Pool } = require('pg');
 
 // Create connection pool
 const pool = new Pool({
-  connectionString: process.env.DATABASE_PUBLIC_URL,
+  connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false
   }
@@ -17,10 +17,15 @@ const pool = new Pool({
  * @returns {Promise<Object>} - Result of the database operation
  */
 const insertFacilitySignups = async (users) => {
+  console.log(`Starting database insertion for ${users.length} users`);
+  console.log('Database URL available:', !!process.env.DATABASE_URL);
+  
   const client = await pool.connect();
+  console.log('Database client connected successfully');
   
   try {
     await client.query('BEGIN');
+    console.log('Database transaction started');
     
     // Prepare the insert statement
     const insertQuery = `
@@ -74,7 +79,12 @@ const insertFacilitySignups = async (users) => {
       `;
     
     // Insert each user
-    for (const user of users) {
+    for (let i = 0; i < users.length; i++) {
+      const user = users[i];
+      if (i === 0) {
+        console.log('Processing first user:', user.user_id, user.username);
+      }
+      
       const values = [
         user.user_id, user.id, user.facility_id, user.user_uuid, user.username,
         user.name, user.email, user.email_verified_at, user.password,
@@ -91,9 +101,13 @@ const insertFacilitySignups = async (users) => {
       ];
       
       await client.query(insertQuery, values);
+      if (i % 100 === 0) {
+        console.log(`Processed ${i + 1} users...`);
+      }
     }
     
     await client.query('COMMIT');
+    console.log('Database transaction committed successfully');
     
     return {
       success: true,
@@ -102,10 +116,12 @@ const insertFacilitySignups = async (users) => {
     };
     
   } catch (error) {
+    console.error('Database error during user insertion:', error);
     await client.query('ROLLBACK');
     throw error;
   } finally {
     client.release();
+    console.log('Database client released');
   }
 };
 
