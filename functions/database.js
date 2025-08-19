@@ -78,12 +78,15 @@ const insertFacilitySignups = async (users) => {
       const values = [
         user.user_id, user.id, user.facility_id, user.user_uuid, user.username,
         user.name, user.email, user.email_verified_at, user.password,
-        user.remember_token, user.created_at, user.updated_at, user.created_user_id,
-        user.updated_user_id, user.instance_id, user.prefix_id, user.first_name,
-        user.middle_name, user.last_name, user.suffix_id, user.gender,
-        user.member_number, user.region_id, user.login_count, user.login_stamp,
-        user.status_id, user.user_level_id, user.admin_level_id, user.dob,
-        user.meta_data, user.external_ids, user.biometric_key,
+        user.remember_token, user.created_at, 
+        user.updated_at || user.created_at, // Use created_at if updated_at is null
+        user.created_user_id || 0, user.updated_user_id || 0, user.instance_id || 0, 
+        user.prefix_id || 0, user.first_name, user.middle_name, user.last_name, 
+        user.suffix_id || 0, user.gender || 0, user.member_number || 0, 
+        user.region_id || 0, user.login_count || 0, 
+        user.login_stamp || user.created_at, // Use created_at if login_stamp is null
+        user.status_id || 1, user.user_level_id || 1, user.admin_level_id || 1, 
+        user.dob, user.meta_data, user.external_ids, user.biometric_key,
         user.biometric_expiration, user.reward_program, user.member_added_date
       ];
       
