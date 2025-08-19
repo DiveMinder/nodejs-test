@@ -75,23 +75,24 @@ const handleGetFacilitySignups = async (req, res) => {
     
     console.log('External service response:', externalResponse);
     
-    // Then respond to the original webhook
+    // Extract the specific data we need
+    const cookies = externalResponse.response?.cookies || {};
+    const xsrf = externalResponse.response?.xsrf || '';
+    
+    // Format the curl command
+    const curlCommand = `curl "https://portal.tdisdi.com/ajax/get_facility_signups?facility_uuid=${process.env.FACILITY_ID}" \\
+  -H "Accept: application/json" \\
+  -H "Cookie: ITIAuthToken=${cookies.ITIAuthToken || ''}; PORTALSESSID=${cookies.PORTALSESSID || ''}; SAMLSessionID=${cookies.SAMLSessionID || ''}; SelectedFacility=${process.env.FACILITY_ID}; XSRF-TOKEN=${cookies.XSRF_TOKEN || ''}; tdisdi_portal_session=${cookies.tdisdi_portal_session || ''}"`;
+    
+    // Return just the curl command
     res.status(200).json({
-      message: 'Successfully Called and Responded',
-      timestamp: new Date().toISOString(),
-      status: 'success',
-      facility_id: process.env.FACILITY_ID,
-      externalCall: {
-        status: 'completed',
-        response: externalResponse
-      }
+      status: "success",
+      curl_command: curlCommand
     });
     
   } catch (error) {
     console.error('Error in webhook:', error);
     res.status(500).json({
-      message: 'Error processing webhook',
-      timestamp: new Date().toISOString(),
       status: 'error',
       error: error.message
     });
