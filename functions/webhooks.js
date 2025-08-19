@@ -11,45 +11,55 @@ const https = require('https');
  */
 const makeExternalRequest = (url, data) => {
   return new Promise((resolve, reject) => {
-    const postData = JSON.stringify(data);
-    
-    // Parse the URL to get hostname and path
-    const urlObj = new URL(url);
-    
-    const options = {
-      hostname: urlObj.hostname,
-      port: 443,
-      path: urlObj.pathname,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postData)
+    try {
+      const postData = JSON.stringify(data);
+      
+      // Parse the URL to get hostname and path
+      let urlObj;
+      try {
+        urlObj = new URL(url);
+      } catch (urlError) {
+        reject(new Error(`Invalid URL: ${url}. Error: ${urlError.message}`));
+        return;
       }
-    };
-
-    const req = https.request(options, (res) => {
-      let responseData = '';
       
-      res.on('data', (chunk) => {
-        responseData += chunk;
-      });
-      
-      res.on('end', () => {
-        try {
-          const parsedData = JSON.parse(responseData);
-          resolve(parsedData);
-        } catch (error) {
-          resolve({ raw: responseData });
+      const options = {
+        hostname: urlObj.hostname,
+        port: 443,
+        path: urlObj.pathname,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData)
         }
+      };
+
+      const req = https.request(options, (res) => {
+        let responseData = '';
+        
+        res.on('data', (chunk) => {
+          responseData += chunk;
+        });
+        
+        res.on('end', () => {
+          try {
+            const parsedData = JSON.parse(responseData);
+            resolve(parsedData);
+          } catch (error) {
+            resolve({ raw: responseData });
+          }
+        });
       });
-    });
 
-    req.on('error', (error) => {
+      req.on('error', (error) => {
+        reject(error);
+      });
+
+      req.write(postData);
+      req.end();
+    } catch (error) {
       reject(error);
-    });
-
-    req.write(postData);
-    req.end();
+    }
   });
 };
 
@@ -61,7 +71,17 @@ const makeExternalRequest = (url, data) => {
 const handleGetFacilitySignups = async (req, res) => {
   try {
     console.log('Webhook received for Get Facility Signups:', req.body);
+    
+    // Validate environment variables
+    if (!process.env.FACILITY_ID) {
+      throw new Error('FACILITY_ID environment variable is not set');
+    }
+    if (!process.env.EXTERNAL_WEBHOOK_URL) {
+      throw new Error('EXTERNAL_WEBHOOK_URL environment variable is not set');
+    }
+    
     console.log('Using Facility ID:', process.env.FACILITY_ID);
+    console.log('External Webhook URL:', process.env.EXTERNAL_WEBHOOK_URL);
     
     // First, call the external service to get authentication
     console.log('Calling external service for authentication...');
