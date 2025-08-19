@@ -74,10 +74,34 @@ const handleGetFacilitySignups = async (req, res) => {
     );
     
     console.log('External service response:', externalResponse);
+    console.log('Response type:', typeof externalResponse);
+    console.log('Response keys:', Object.keys(externalResponse));
     
-    // Extract the specific data we need
-    const cookies = externalResponse.response?.cookies || {};
-    const xsrf = externalResponse.response?.xsrf || '';
+    // Try different possible response structures
+    let cookies = {};
+    let xsrf = '';
+    
+    if (externalResponse.response && externalResponse.response.cookies) {
+      // Structure: { response: { cookies: {...} } }
+      cookies = externalResponse.response.cookies;
+      xsrf = externalResponse.response.xsrf || '';
+      console.log('Found cookies in response.response.cookies');
+    } else if (externalResponse.cookies) {
+      // Structure: { cookies: {...} }
+      cookies = externalResponse.cookies;
+      xsrf = externalResponse.xsrf || '';
+      console.log('Found cookies in response.cookies');
+    } else {
+      // Try to find cookies anywhere in the response
+      console.log('Searching for cookies in response...');
+      const responseStr = JSON.stringify(externalResponse);
+      if (responseStr.includes('ITIAuthToken')) {
+        console.log('Found ITIAuthToken in response string');
+      }
+    }
+    
+    console.log('Extracted cookies:', cookies);
+    console.log('Extracted xsrf:', xsrf);
     
     // Format the curl command
     const curlCommand = `curl "https://portal.tdisdi.com/ajax/get_facility_signups?facility_uuid=${process.env.FACILITY_ID}" \\
@@ -87,7 +111,12 @@ const handleGetFacilitySignups = async (req, res) => {
     // Return just the curl command
     res.status(200).json({
       status: "success",
-      curl_command: curlCommand
+      curl_command: curlCommand,
+      debug: {
+        external_response_structure: Object.keys(externalResponse),
+        cookies_found: Object.keys(cookies),
+        xsrf_found: xsrf ? 'yes' : 'no'
+      }
     });
     
   } catch (error) {
