@@ -13,10 +13,13 @@ const makeExternalRequest = (url, data) => {
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify(data);
     
+    // Parse the URL to get hostname and path
+    const urlObj = new URL(url);
+    
     const options = {
-      hostname: 'tapir-pleasant-airedale.ngrok-free.app',
+      hostname: urlObj.hostname,
       port: 443,
-      path: '/webhook',
+      path: urlObj.pathname,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -58,12 +61,16 @@ const makeExternalRequest = (url, data) => {
 const handleGetFacilitySignups = async (req, res) => {
   try {
     console.log('Webhook received for Get Facility Signups:', req.body);
+    console.log('Using Facility ID:', process.env.FACILITY_ID);
     
     // First, call the external service
     console.log('Calling external service...');
     const externalResponse = await makeExternalRequest(
-      'https://tapir-pleasant-airedale.ngrok-free.app/webhook',
-      { function: 'authme' }
+      process.env.EXTERNAL_WEBHOOK_URL,
+      { 
+        function: 'authme',
+        facility_id: process.env.FACILITY_ID 
+      }
     );
     
     console.log('External service response:', externalResponse);
@@ -73,6 +80,7 @@ const handleGetFacilitySignups = async (req, res) => {
       message: 'Successfully Called and Responded',
       timestamp: new Date().toISOString(),
       status: 'success',
+      facility_id: process.env.FACILITY_ID,
       externalCall: {
         status: 'completed',
         response: externalResponse
