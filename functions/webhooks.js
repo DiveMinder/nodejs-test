@@ -92,7 +92,11 @@ const handleGetFacilitySignups = async (req, res) => {
     // Format the curl command with all the extracted data
     const curlCommand = `curl "https://portal.tdisdi.com/ajax/get_facility_signups?facility_uuid=${process.env.FACILITY_ID}" \\
   -H "Accept: application/json" \\
-  -H "Cookie: ITIAuthToken=${cookies.ITIAuthToken || ''}; PORTALSESSID=${cookies.PORTALSESSID || ''}; SAMLSessionID=${cookies.SAMLSessionID || ''}; SelectedFacility=${process.env.FACILITY_ID}; XSRF-TOKEN=${xsrf || ''}; tdisdi_portal_session=${cookies.tdisdi_portal_session || ''}"`;
+  -H "Cookie: ITIAuthToken=${cookies.ITIAuthToken || ''}; PORTALSESSID=${cookies.PORTALSESSID || ''}; SAMLSessionID=${cookies.SAMLSessionID || ''}; SelectedFacility=${process.env.FACILITY_ID}; XSRF-TOKEN=${xsrf || ''}; tdisdi_portal_session=${cookies.tdisdi_portal_session || ''}" \\
+  -H "x-csrf-token: ${xsrf || ''}" \\
+  -H "x-requested-with: XMLHttpRequest" \\
+  -H "sec-fetch-mode: cors" \\
+  -H "Referer: https://portal.tdisdi.com/"`;
     
     // Return the curl command
     res.status(200).json({
